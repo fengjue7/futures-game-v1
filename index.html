@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>股指期货套利大师</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #0f1419; color: #e7e9ea; overflow: hidden; }
+  body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  /* 顶部状态栏 */
+  .top-bar {
+    background: linear-gradient(135deg, #1a2332 0%, #0f1419 100%);
+    padding: 10px 14px;
+    border-bottom: 1px solid #2f3336;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .top-bar .title { font-size: 15px; font-weight: 600; color: #ffd400; }
+  .top-bar .level { font-size: 12px; color: #8b98a5; }
+  .top-bar .balance { font-size: 14px; font-weight: 600; color: #00ff88; }
+
+  /* 价格面板 */
+  .price-panel {
+    display: flex;
+    background: #151b23;
+    border-bottom: 1px solid #2f3336;
+    flex-shrink: 0;
+  }
+  .price-item {
+    flex: 1;
+    padding: 10px 8px;
+    text-align: center;
+    position: relative;
+  }
+  .price-item:first-child { border-right: 1px solid #2f3336; }
+  .price-label { font-size: 11px; color: #8b98a5; margin-bottom: 4px; }
+  .price-value { font-size: 20px; font-weight: 700; font-family: "SF Mono", Menlo, monospace; }
+  .price-change { font-size: 11px; margin-top: 2px; }
+  .price-up { color: #ff4757; }
+  .price-down { color: #00d26a; }
+  .basis-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #2d3748;
+    color: #ffd400;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+  }
+
+  /* 图表区域 */
+  .chart-container {
+    flex: 1;
+    position: relative;
+    background: #0f1419;
+    min-height: 140px;
+    overflow: hidden;
+  }
+  #priceChart { width: 100%; height: 100%; display: block; }
+  .chart-legend {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    background: rgba(15,20,25,0.8);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .legend-spot .legend-dot { background: #ffd400; }
+  .legend-futures .legend-dot { background: #00b4ff; }
+
+  /* 新闻滚动条 */
+  .news-ticker {
+    background: #1a2332;
+    border-top: 1px solid #2f3336;
+    border-bottom: 1px solid #2f3336;
+    padding: 6px 12px;
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    flex-shrink: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .news-icon { color: #ffd400; margin-right: 8px; flex-shrink: 0; font-size: 13px; }
+  .news-text { overflow: hidden; text-overflow: ellipsis; }
+  .news-bull { color: #ff6b6b; }
+  .news-bear { color: #4ecdc4; }
+
+  /* 持仓面板 */
+  .position-panel {
+    background: #151b23;
+    border-bottom: 1px solid #2f3336;
+    padding: 10px 14px;
+    flex-shrink: 0;
+  }
+  .position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .position-title { font-size: 13px; font-weight: 600; color: #e7e9ea; }
+  .position-count { font-size: 11px; color: #8b98a5; }
+  .position-card {
+    background: #1e2836;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pos-empty { color: #5b6470; font-size: 12px; text-align: center; padding: 6px 0; }
+  .pos-direction {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .pos-long { background: rgba(255,71,87,0.15); color: #ff4757; }
+  .pos-short { background: rgba(0,210,106,0.15); color: #00d26a; }
+  .pos-info { flex: 1; margin-left: 10px; }
+  .pos-price { font-size: 11px; color: #8b98a5; }
+  .pos-pnl { font-size: 14px; font-weight: 700; font-family: "SF Mono", Menlo, monospace; }
+
+  /* 操作按钮区 */
+  .action-panel {
+    background: #1a2332;
+    padding: 10px 12px 14px;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .btn {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 0;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: white;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-buy { background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%); box-shadow: 0 2px 8px rgba(255,71,87,0.3); }
+  .btn-sell { background: linear-gradient(135deg, #00d26a 0%, #00e08f 100%); box-shadow: 0 2px 8px rgba(0,210,106,0.3); }
+  .btn-close { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); grid-column: span 2; }
+  .btn-news { background: linear-gradient(135deg, #ff9500 0%, #ffb347 100%); grid-column: span 2; box-shadow: 0 2px 8px rgba(255,149,0,0.3); }
+  .btn-next { background: linear-gradient(135deg, #ffd400 0%, #ffb800 100%); color: #1a1a2e; grid-column: span 2; }
+
+  /* 数量选择器 */
+  .quantity-picker {
+    grid-column: span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .qty-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #3d4f66;
+    background: #1e2836;
+    color: #e7e9ea;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qty-btn:active { background: #2d3d52; }
+  .qty-display {
+    font-size: 16px;
+    font-weight: 600;
+    min-width: 80px;
+    text-align: center;
+  }
+  .qty-label { font-size: 11px; color: #8b98a5; display: block; }
+  .qty-value { color: #ffd400; font-family: "SF Mono", Menlo, monospace; }
+
+  /* 模态框 */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: #1a2332;
+    border-radius: 16px;
+    padding: 24px 20px;
+    max-width: 360px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    border: 1px solid #2f3336;
+  }
+  .modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 16px;
+    color: #ffd400;
+  }
+  .modal-subtitle {
+    font-size: 13px;
+    color: #8b98a5;
+    text-align: center;
+    margin-bottom: 18px;
+    line-height: 1.6;
+  }
+  .modal-body { font-size: 14px; line-height: 1.7; color: #d0d5dd; margin-bottom: 20px; }
+  .modal-body p { margin-bottom: 10px; }
+  .modal-body .tip-box {
+    background: rgba(255,212,0,0.08);
+    border-left: 3px solid #ffd400;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+  .modal-body .key-point { color: #ffd400; font-weight: 600; }
+  .modal-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ffd400 0%, #ffb800 100%);
+    color: #1a1a2e;
+    transition: transform 0.15s;
+  }
+  .modal-btn:active { transform: scale(0.97); }
+  .modal-btn.secondary {
+    background: #2d3d52;
+    color: #e7e9ea;
+    margin-top: 8px;
+  }
+
+  /* 成就徽章 */
+  .achievements {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 14px 0;
+  }
+  .badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    position: relative;
+    background: #2d3748;
+    opacity: 0.4;
+    border: 2px solid #4a5568;
+  }
+  .badge.unlocked {
+    opacity: 1;
+    background: linear-gradient(135deg, #ffd400 0%, #ff8c00 100%);
+    border-color: #ffd400;
+    box-shadow: 0 0 12px rgba(255,212,0,0.4);
+  }
+  .badge-name {
+    position: absolute;
+    bottom: -18px;
+    font-size: 10px;
+    white-space: nowrap;
+    color: #8b98a5;
+    width: 60px;
+    text-align: center;
+  }
+  .badge.unlocked .badge-name { color: #ffd400; }
+
+  /* 关卡选择 */
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .level-card {
+    background: #1e2836;
+    border: 2px solid #2f3336;
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .level-card:active { transform: scale(0.96); }
+  .level-card.locked { opacity: 0.4; cursor: not-allowed; }
+  .level-card.current { border-color: #ffd400; background: rgba(255,212,0,0.08); }
+  .level-card.completed { border-color: #00d26a; }
+  .level-num { font-size: 22px; font-weight: 700; color: #ffd400; margin-bottom: 4px; }
+  .level-card.completed .level-num { color: #00d26a; }
+  .level-name { font-size: 12px; color: #e7e9ea; }
+  .level-desc { font-size: 10px; color: #8b98a5; margin-top: 4px; line-height: 1.3; }
+
+  /* 结算画面 */
+  .result-icon { font-size: 60px; text-align: center; margin-bottom: 10px; }
+  .result-score {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: #ffd400;
+    margin-bottom: 6px;
+  }
+  .result-label { text-align: center; font-size: 13px; color: #8b98a5; margin-bottom: 18px; }
+  .result-stats {
+    background: #151b23;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 18px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #2f3336;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #8b98a5; }
+  .stat-value { font-weight: 600; font-family: "SF Mono", Menlo, monospace; }
+
+  /* 盈亏闪烁动画 */
+  @keyframes flashUp { 0% { background-color: rgba(255,71,87,0.3); } 100% { background-color: transparent; } }
+  @keyframes flashDown { 0% { background-color: rgba(0,210,106,0.3); } 100% { background-color: transparent; } }
+  .flash-up { animation: flashUp 0.5s ease; }
+  .flash-down { animation: flashDown 0.5s ease; }
+
+  /* 浮动提示 */
+  .toast {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 2000;
+    opacity: 0;
+    transition: opacity 0.3s, top 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; top: 70px; }
+  .toast.success { border-left: 3px solid #00d26a; }
+  .toast.error { border-left: 3px solid #ff4757; }
+  .toast.info { border-left: 3px solid #ffd400; }
+
+  /* 进度条 */
+  .timer-bar {
+    height: 3px;
+    background: #2f3336;
+    flex-shrink: 0;
+  }
+  .timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd400, #ff8c00);
+    transition: width 0.1s linear;
+  }
+
+  /* 知识提示浮动框 */
+  .floating-tip {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,212,0,0.15);
+    border: 1px solid rgba(255,212,0,0.3);
+    color: #ffd400;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 11px;
+    max-width: 90%;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .floating-tip.show { opacity: 1; }
+
+  @media (min-width: 768px) {
+    body { max-width: 480px; margin: 0 auto; border-left: 1px solid #2f3336; border-right: 1px solid #2f3336; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部状态栏 -->
+<div class="top-bar">
+  <div>
+    <div class="title">📈 股指期货套利大师</div>
+    <div class="level" id="levelText">第 1 关 · 初识多头</div>
+  </div>
+  <div class="balance" id="balanceText">¥1,000,000</div>
+</div>
+
+<!-- 时间进度条 -->
+<div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+
+<!-- 价格面板 -->
+<div class="price-panel">
+  <div class="price-item">
+    <div class="price-label">沪深300（现货）</div>
+    <div class="price-value price-up" id="spotPrice">3800.00</div>
+    <div class="price-change price-up" id="spotChange">+0.00 (0.00%)</div>
+  </div>
+  <div class="price-item">
+    <div class="basis-badge" id="basisBadge">基差 +12.5</div>
+    <div class="price-label">IF股指期货</div>
+    <div class="price-value price-up" id="futuresPrice">3812.50</div>
+    <div class="price-change price-up" id="futuresChange">+0.00 (0.00%)</div>
+  </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="chart-container">
+  <canvas id="priceChart"></canvas>
+  <div class="chart-legend">
+    <span class="legend-spot"><span class="legend-dot"></span>现货</span>
+    <span class="legend-futures"><span class="legend-dot"></span>期货</span>
+  </div>
+  <div class="floating-tip" id="floatingTip"></div>
+</div>
+
+<!-- 新闻滚动 -->
+<div class="news-ticker">
+  <span class="news-icon">📰</span>
+  <span class="news-text" id="newsText">市场开盘，交易开始！</span>
+</div>
+
+<!-- 持仓面板 -->
+<div class="position-panel">
+  <div class="position-header">
+    <span class="position-title">我的持仓</span>
+    <span class="position-count" id="positionCount">0 手</span>
+  </div>
+  <div id="positionCard">
+    <div class="pos-empty">暂无持仓，选择方向开仓吧！</div>
+  </div>
+</div>
+
+<!-- 操作面板 -->
+<div class="action-panel">
+  <div class="quantity-picker">
+    <button class="qty-btn" id="qtyMinus">−</button>
+    <div class="qty-display">
+      <span class="qty-label">开仓手数</span>
+      <span class="qty-value" id="qtyValue">1</span>
+    </div>
+    <button class="qty-btn" id="qtyPlus">+</button>
+  </div>
+  <button class="btn btn-buy" id="btnBuy">买入开仓（做多）</button>
+  <button class="btn btn-sell" id="btnSell">卖出开仓（做空）</button>
+  <button class="btn btn-close" id="btnClose" disabled>平仓</button>
+  <button class="btn btn-news" id="btnNews">📰 发布突发新闻</button>
+</div>
+
+<!-- 浮动提示 -->
+<div class="toast" id="toast"></div>
+
+<!-- 开始游戏模态框 -->
+<div class="modal-overlay" id="startModal">
+  <div class="modal">
+    <div class="modal-title">🎯 股指期货套利大师</div>
+    <div class="modal-subtitle">通过游戏学会：何时做多获利，何时做空获利</div>
+    <div class="modal-body">
+      <p>💡 <span class="key-point">多头获利</span>：你买入期货，价格上涨后卖出，赚差价。</p>
+      <p>💡 <span class="key-point">空头获利</span>：你卖出期货，价格下跌后买入平仓，也能赚差价！</p>
+      <div class="tip-box">
+        🎮 共5个关卡，每关60秒。观察行情、判断方向、开仓平仓，成为套利大师！
+      </div>
+    </div>
+    <div class="level-grid" id="levelSelect">
+      <!-- 动态生成 -->
+    </div>
+    <button class="modal-btn" id="btnStartGame">开始游戏</button>
+  </div>
+</div>
+
+<!-- 关卡知识模态框 -->
+<div class="modal-overlay" id="knowledgeModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title" id="knowledgeTitle">第1关 · 初识多头</div>
+    <div class="modal-body" id="knowledgeBody"></div>
+    <button class="modal-btn" id="btnStartLevel">开始挑战</button>
+  </div>
+</div>
+
+<!-- 结算模态框 -->
+<div class="modal-overlay" id="resultModal" style="display:none;">
+  <div class="modal">
+    <div class="result-icon" id="resultIcon">🎉</div>
+    <div class="result-score" id="resultScore">+¥125,000</div>
+    <div class="result-label" id="resultLabel">恭喜过关！</div>
+    <div class="result-stats" id="resultStats"></div>
+    <div class="achievements" id="achievementShowcase"></div>
+    <button class="modal-btn" id="btnNextLevel">下一关</button>
+    <button class="modal-btn secondary" id="btnRetry">再玩一次</button>
+  </div>
+</div>
+
+<!-- 成就总览模态框 -->
+<div class="modal-overlay" id="achievementModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-title">🏆 我的成就</div>
+    <div class="achievements" id="allAchievements" style="margin: 20px 0;"></div>
+    <button class="modal-btn secondary" id="btnCloseAchievement">返回</button>
+  </div>
+</div>
+
+<script>
+// ============= 游戏配置 =============
+const CONTRACT_MULTIPLIER = 300; // 每点300元
+const INITIAL_BALANCE = 1000000; // 初始资金100万
+const MARGIN_RATIO = 0.12; // 保证金比例12%
+const GAME_DURATION = 60; // 每关60秒
+const TICK_INTERVAL = 1000; // 价格更新间隔(ms)
+const CHART_POINTS = 60; // 图表显示点数
+
+// 关卡配置
+const LEVELS = [
+  {
+    id: 1,
+    name: "初识多头",
+    desc: "上涨行情中学习做多",
+    trend: "bull", // 上涨趋势
+    volatility: 0.003,
+    trendStrength: 0.0015,
+    targetReturn: 0.03, // 目标收益率3%
+    knowledge: `
+      <p>📚 <b>什么是股指期货？</b></p>
+      <p>股指期货就是以股票指数为标的的期货合约。比如沪深300股指期货（IF），每波动1个点，对应盈亏 <span class="key-point">300元</span>。</p>
+      <div class="tip-box">
+        <p>📈 <b>多头（做多）怎么赚钱？</b></p>
+        <p>当你<span class="key-point">预测价格会上涨</span>时，就「买入开仓」。等价格真的涨了，再「卖出平仓」，赚取差价。</p>
+        <p>举例：3800点买入，3900点卖出 → 赚 (3900-3800)×300 = <b>30,000元</b></p>
+      </div>
+      <p>🎯 本关行情：整体上涨趋势。尝试做多获利吧！</p>
+    `
+  },
+  {
+    id: 2,
+    name: "空头的威力",
+    desc: "下跌行情中学习做空",
+    trend: "bear",
+    volatility: 0.0035,
+    trendStrength: -0.0018,
+    targetReturn: 0.03,
+    knowledge: `
+      <p>📚 <b>什么是做空？</b></p>
+      <p>很多人以为只有上涨才能赚钱，但期货不一样！<span class="key-point">价格下跌也能赚钱</span>，这就是「做空」。</p>
+      <div class="tip-box">
+        <p>📉 <b>空头（做空）怎么赚钱？</b></p>
+        <p>当你<span class="key-point">预测价格会下跌</span>时，就「卖出开仓」。等价格真的跌了，再「买入平仓」，赚取差价。</p>
+        <p>举例：3800点卖出开仓，3700点买入平仓 → 赚 (3800-3700)×300 = <b>30,000元</b></p>
+      </div>
+      <p>🎯 本关行情：整体下跌趋势。试试做空的威力吧！</p>
+    `
+  },
+  {
+    id: 3,
+    name: "震荡市场",
+    desc: "横盘中锻炼判断力",
+    trend: "sideways",
+    volatility: 0.005,
+    trendStrength: 0,
+    targetReturn: 0.02,
+    knowledge: `
+      <p>📚 <b>震荡市场怎么操作？</b></p>
+      <p>市场不会一直涨或一直跌，更多时候是横盘震荡。这需要你<span class="key-point">灵活判断</span>，在支撑位做多，在压力位做空。</p>
+      <div class="tip-box">
+        <p>💡 <b>震荡市操作技巧</b></p>
+        <p>• 价格跌到区间下沿 → 考虑做多</p>
+        <p>• 价格涨到区间上沿 → 考虑做空</p>
+        <p>• 及时止损，不要恋战</p>
+        <p>• 可以空仓观望，等待机会</p>
+      </div>
+      <p>🎯 本关行情：震荡横盘。考验你的判断力！</p>
+    `
+  },
+  {
+    id: 4,
+    name: "期现套利",
+    desc: "利用基差变化套利",
+    trend: "bull",
+    volatility: 0.004,
+    trendStrength: 0.001,
+    basisVolatility: 0.002, // 基差波动更大
+    targetReturn: 0.025,
+    knowledge: `
+      <p>📚 <b>什么是期现套利？</b></p>
+      <p>期货价格和现货指数之间的差叫<span class="key-point">基差</span>（基差 = 期货价 - 现货价）。</p>
+      <p>正常情况下基差很小，但市场情绪极端时基差会扩大，到期前又会收敛。这就是<span class="key-point">套利机会</span>！</p>
+      <div class="tip-box">
+        <p>🔄 <b>正向套利</b>：期货 > 现货（基差很大）</p>
+        <p>卖出被高估的期货，等基差回归获利。</p>
+        <p>🔄 <b>反向套利</b>：期货 < 现货（负基差很大）</p>
+        <p>买入被低估的期货，等基差回归获利。</p>
+      </div>
+      <p>🎯 本关：注意观察基差变化，寻找套利机会！</p>
+    `
+  },
+  {
+    id: 5,
+    name: "终极挑战",
+    desc: "综合行情自由发挥",
+    trend: "mixed",
+    volatility: 0.006,
+    trendStrength: 0,
+    targetReturn: 0.05,
+    knowledge: `
+      <p>📚 <b>综合挑战</b></p>
+      <p>这一关行情变幻莫测，有上涨也有下跌，还有突发新闻冲击市场。</p>
+      <div class="tip-box">
+        <p>🎯 <b>挑战目标</b></p>
+        <p>在60秒内，让你的资金收益率达到 <span class="key-point">5%以上</span>！</p>
+        <p>灵活运用你学到的所有技巧：</p>
+        <p>• 上涨趋势 → 做多</p>
+        <p>• 下跌趋势 → 做空</p>
+        <p>• 基差异常 → 套利</p>
+        <p>• 看不准时 → 空仓观望</p>
+      </div>
+      <p>🏆 成为真正的股指期货套利大师吧！</p>
+    `
+  }
+];
+
+// 成就配置
+const ACHIEVEMENTS = [
+  { id: "first_trade", name: "初次交易", icon: "🎯", desc: "完成第一笔交易" },
+  { id: "long_profit", name: "多头猎手", icon: "🐂", desc: "做多获利超过2万元" },
+  { id: "short_profit", name: "空头勇士", icon: "🐻", desc: "做空获利超过2万元" },
+  { id: "arbitrage", name: "套利达人", icon: "🔄", desc: "利用基差套利成功" },
+  { id: "big_win", name: "大获全胜", icon: "🏆", desc: "单关盈利超过10万元" },
+  { id: "all_levels", name: "套利大师", icon: "👑", desc: "通关全部5个关卡" }
+];
+
+// 新闻库
+const NEWS = {
+  bull: [
+    "央行宣布降准，释放流动性利好市场",
+    "经济数据超预期，GDP增速强劲",
+    "外资大举流入A股，北向资金净买入百亿",
+    "政策暖风频吹，稳增长措施加码",
+    "上市公司业绩预告向好，盈利超预期",
+    "券商研报集体看多，目标价上调",
+    "科技板块爆发，半导体领涨",
+    "消费复苏强劲，零售数据超预期"
+  ],
+  bear: [
+    "美联储加息预期升温，全球市场承压",
+    "通胀数据超预期，紧缩政策或加码",
+    "地缘政治紧张，避险情绪升温",
+    "监管政策趋严，市场信心受挫",
+    "上市公司业绩暴雷，大幅亏损",
+    "外资大幅流出，北向资金净卖出",
+    "疫情反复，经济复苏承压",
+    "房地产风险暴露，拖累大盘"
+  ],
+  neutral: [
+    "市场观望情绪浓厚，等待新催化剂",
+    "两市成交额萎缩，交投清淡",
+    "板块轮动加速，热点切换频繁",
+    "机构调仓换股，布局下季度行情",
+    "两会召开在即，政策预期升温",
+    "市场分化明显，结构性行情延续"
+  ]
+};
+
+// ============= 游戏状态 =============
+let gameState = {
+  currentLevel: 1,
+  unlockedLevel: 1,
+  balance: INITIAL_BALANCE,
+  initialBalance: INITIAL_BALANCE,
+  position: null, // { direction: 'long'|'short', quantity: number, openPrice: number }
+  spotPrice: 3800,
+  futuresPrice: 3812.5,
+  spotBasePrice: 3800,
+  futuresBasePrice: 3812.5,
+  spotStartPrice: 3800,
+  futuresStartPrice: 3812.5,
+  priceHistory: { spot: [], futures: [] },
+  timeLeft: GAME_DURATION,
+  isPlaying: false,
+  tickCount: 0,
+  totalTrades: 0,
+  totalPnL: 0,
+  wins: 0,
+  losses: 0,
+  achievements: {},
+  basisTrend: 0,
+  mixedPhase: 0,
+  lastNewsTime: 0
+};
+
+// 从本地存储加载进度
+function loadProgress() {
+  try {
+    const saved = localStorage.getItem("futuresGameProgress");
+    if (saved) {
+      const data = JSON.parse(saved);
+      gameState.unlockedLevel = data.unlockedLevel || 1;
+      gameState.achievements = data.achievements || {};
+    }
+  } catch(e) {}
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem("futuresGameProgress", JSON.stringify({
+      unlockedLevel: gameState.unlockedLevel,
+      achievements: gameState.achievements
+    }));
+  } catch(e) {}
+}
+
+// ============= 工具函数 =============
+function fmtMoney(n) {
+  return "¥" + Math.round(n).toLocaleString();
+}
+function fmtPrice(n) {
+  return n.toFixed(2);
+}
+function fmtPct(n) {
+  return (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
+
+function showToast(msg, type = "info") {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.className = "toast show " + type;
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove("show"), 2000);
+}
+
+function showFloatingTip(msg) {
+  const tip = document.getElementById("floatingTip");
+  tip.textContent = msg;
+  tip.classList.add("show");
+  clearTimeout(tip._timer);
+  tip._timer = setTimeout(() => tip.classList.remove("show"), 3000);
+}
+
+// ============= 价格引擎 =============
+function generatePriceTick() {
+  const level = LEVELS[gameState.currentLevel - 1];
+  const v = level.volatility;
+  let ts = level.trendStrength;
+
+  // 混合行情：阶段切换
+  if (level.trend === "mixed") {
+    const phase = Math.floor(gameState.tickCount / 15) % 3;
+    if (phase === 0) ts = 0.002;      // 上涨
+    else if (phase === 1) ts = -0.002; // 下跌
+    else ts = 0;                       // 震荡
+  }
+
+  // 随机波动 + 趋势
+  const randomShock = (Math.random() - 0.5) * 2 * v;
+  const spotChange = gameState.spotPrice * (ts + randomShock);
+  gameState.spotPrice = Math.max(2000, Math.min(6000, gameState.spotPrice + spotChange));
+
+  // 期货价格 = 现货 + 基差
+  // 基差有均值回归特性，围绕合理基差波动
+  const fairBasis = gameState.spotPrice * 0.003; // 合理基差约0.3%
+  let currentBasis = gameState.futuresPrice - gameState.spotPrice;
+  
+  // 第4关基差波动更大
+  const basisVol = level.basisVolatility || 0.0008;
+  const basisShock = (Math.random() - 0.5) * 2 * gameState.spotPrice * basisVol;
+  const basisReversion = (fairBasis - currentBasis) * 0.05; // 均值回归
+  
+  // 基差趋势（制造套利机会）
+  if (gameState.tickCount % 20 === 0) {
+    gameState.basisTrend = (Math.random() - 0.5) * gameState.spotPrice * 0.001;
+  }
+  
+  currentBasis = currentBasis + basisShock + basisReversion + gameState.basisTrend * 0.1;
+  
+  gameState.futuresPrice = Math.max(2000, Math.min(6000, gameState.spotPrice + currentBasis));
+
+  // 记录历史
+  gameState.priceHistory.spot.push(gameState.spotPrice);
+  gameState.priceHistory.futures.push(gameState.futuresPrice);
+  if (gameState.priceHistory.spot.length > CHART_POINTS) {
+    gameState.priceHistory.spot.shift();
+    gameState.priceHistory.futures.shift();
+  }
+}
+
+// ============= 新闻系统 =============
+function maybeTriggerNews() {
+  // 每10-20秒触发一次新闻
+  if (gameState.tickCount - gameState.lastNewsTime < 10 + Math.random() * 10) return;
+  
+  const level = LEVELS[gameState.currentLevel - 1];
+  let pool;
+  const r = Math.random();
+  
+  if (level.trend === "bull") {
+    pool = r < 0.6 ? NEWS.bull : (r < 0.85 ? NEWS.neutral : NEWS.bear);
+  } else if (level.trend === "bear") {
+    pool = r < 0.6 ? NEWS.bear : (r < 0.85 ? NEWS.neutral : NEWS.bull);
+  } else {
+    pool = r < 0.4 ? NEWS.bull : (r < 0.8 ? NEWS.bear : NEWS.neutral);
+  }
+  
+  const news = pool[Math.floor(Math.random() * pool.length)];
+  const isBull = NEWS.bull.includes(news);
+  const isBear = NEWS.bear.includes(news);
+  
+  let newsClass = "";
+  let impact = 0;
+  if (isBull) { newsClass = "news-bull"; impact = 0.003 + Math.random() * 0.004; }
+  else if (isBear) { newsClass = "news-bear"; impact = -(0.003 + Math.random() * 0.004); }
+  
+  // 新闻对价格产生冲击
+  if (impact !== 0) {
+    gameState.spotPrice *= (1 + impact);
+    gameState.futuresPrice *= (1 + impact * 1.2); // 期货反应更剧烈
+  }
+  
+  const newsEl = document.getElementById("newsText");
+  newsEl.textContent = news;
+  newsEl.className = "news-text " + newsClass;
+  
+  gameState.lastNewsTime = gameState.tickCount;
+}
+
+// 手动触发突发新闻
+function triggerManualNews() {
+  // 随机选择利好或利空，概率各50%
+  const isBull = Math.random() < 0.5;
+  const pool = isBull ? NEWS.bull : NEWS.bear;
+  const news = pool[Math.floor(Math.random() * pool.length)];
+  
+  // 手动新闻冲击更大（0.5%~1.2%）
+  const impact = isBull 
+    ? 0.005 + Math.random() * 0.007 
+    : -(0.005 + Math.random() * 0.007);
+  
+  // 价格冲击
+  gameState.spotPrice *= (1 + impact);
+  gameState.futuresPrice *= (1 + impact * 1.3); // 期货反应更剧烈
+  
+  // 更新新闻栏
+  const newsEl = document.getElementById("newsText");
+  newsEl.textContent = "⚡ 突发：" + news;
+  newsEl.className = "news-text " + (isBull ? "news-bull" : "news-bear");
+  
+  gameState.lastNewsTime = gameState.tickCount;
+  
+  // 提示
+  showToast(isBull ? "📈 利好消息发布！市场冲高" : "📉 利空消息发布！市场下挫", isBull ? "success" : "error");
+  
+  // 立即更新UI
+  updatePriceDisplay();
+  updateBalanceDisplay();
+  updatePositionDisplay();
+  drawChart();
+}
+
+// ============= UI 更新 =============
+function updatePriceDisplay() {
+  const spotEl = document.getElementById("spotPrice");
+  const futEl = document.getElementById("futuresPrice");
+  const spotChangeEl = document.getElementById("spotChange");
+  const futChangeEl = document.getElementById("futuresChange");
+  const basisBadge = document.getElementById("basisBadge");
+
+  const spotChg = gameState.spotPrice - gameState.spotStartPrice;
+  const futChg = gameState.futuresPrice - gameState.futuresStartPrice;
+  const spotPct = spotChg / gameState.spotStartPrice;
+  const futPct = futChg / gameState.futuresStartPrice;
+  const basis = gameState.futuresPrice - gameState.spotPrice;
+
+  spotEl.textContent = fmtPrice(gameState.spotPrice);
+  futEl.textContent = fmtPrice(gameState.futuresPrice);
+  
+  spotEl.className = "price-value " + (spotChg >= 0 ? "price-up" : "price-down");
+  futEl.className = "price-value " + (futChg >= 0 ? "price-up" : "price-down");
+  
+  spotChangeEl.textContent = (spotChg >= 0 ? "+" : "") + fmtPrice(spotChg) + " (" + fmtPct(spotPct) + ")";
+  spotChangeEl.className = "price-change " + (spotChg >= 0 ? "price-up" : "price-down");
+  
+  futChangeEl.textContent = (futChg >= 0 ? "+" : "") + fmtPrice(futChg) + " (" + fmtPct(futPct) + ")";
+  futChangeEl.className = "price-change " + (futChg >= 0 ? "price-up" : "price-down");
+
+  basisBadge.textContent = "基差 " + (basis >= 0 ? "+" : "") + fmtPrice(basis);
+  basisBadge.style.color = Math.abs(basis) > gameState.spotPrice * 0.005 ? "#ff6b6b" : "#ffd400";
+}
+
+function updateBalanceDisplay() {
+  const balEl = document.getElementById("balanceText");
+  const totalValue = gameState.balance + getUnrealizedPnL();
+  balEl.textContent = fmtMoney(totalValue);
+  
+  const chg = totalValue - gameState.initialBalance;
+  balEl.style.color = chg >= 0 ? "#00ff88" : "#ff6b6b";
+}
+
+function updatePositionDisplay() {
+  const card = document.getElementById("positionCard");
+  const countEl = document.getElementById("positionCount");
+  const closeBtn = document.getElementById("btnClose");
+
+  if (!gameState.position) {
+    card.innerHTML = '<div class="pos-empty">暂无持仓，选择方向开仓吧！</div>';
+    countEl.textContent = "0 手";
+    closeBtn.disabled = true;
+    return;
+  }
+
+  closeBtn.disabled = false;
+  const pos = gameState.position;
+  const pnl = getUnrealizedPnL();
+  const pnlPct = pnl / (pos.openPrice * CONTRACT_MULTIPLIER * pos.quantity * MARGIN_RATIO);
+
+  countEl.textContent = pos.quantity + " 手";
+  
+  card.innerHTML = `
+    <div class="position-card">
+      <span class="pos-direction ${pos.direction === 'long' ? 'pos-long' : 'pos-short'}">
+        ${pos.direction === 'long' ? '多' : '空'}
+      </span>
+      <div class="pos-info">
+        <div class="pos-price">开仓价 ${fmtPrice(pos.openPrice)} · ${pos.quantity}手</div>
+        <div class="pos-price">保证金 ${fmtMoney(pos.openPrice * CONTRACT_MULTIPLIER * pos.quantity * MARGIN_RATIO)}</div>
+      </div>
+      <div class="pos-pnl" style="color:${pnl >= 0 ? '#ff4757' : '#00d26a'}">
+        ${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}
+      </div>
+    </div>
+  `;
+}
+
+function getUnrealizedPnL() {
+  if (!gameState.position) return 0;
+  const pos = gameState.position;
+  const priceDiff = pos.direction === "long"
+    ? gameState.futuresPrice - pos.openPrice
+    : pos.openPrice - gameState.futuresPrice;
+  return priceDiff * CONTRACT_MULTIPLIER * pos.quantity;
+}
+
+function updateTimerDisplay() {
+  const pct = (gameState.timeLeft / GAME_DURATION) * 100;
+  document.getElementById("timerFill").style.width = pct + "%";
+}
+
+// ============= 图表绘制 =============
+let chartCtx;
+function initChart() {
+  const canvas = document.getElementById("priceChart");
+  const container = canvas.parentElement;
+  canvas.width = container.clientWidth * window.devicePixelRatio;
+  canvas.height = container.clientHeight * window.devicePixelRatio;
+  chartCtx = canvas.getContext("2d");
+  chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+
+function drawChart() {
+  if (!chartCtx) initChart();
+  const canvas = document.getElementById("priceChart");
+  const w = canvas.width / window.devicePixelRatio;
+  const h = canvas.height / window.devicePixelRatio;
+  
+  chartCtx.clearRect(0, 0, w, h);
+  
+  const spotData = gameState.priceHistory.spot;
+  const futData = gameState.priceHistory.futures;
+  if (spotData.length < 2) return;
+
+  // 计算价格范围
+  const allPrices = [...spotData, ...futData];
+  const minP = Math.min(...allPrices) * 0.998;
+  const maxP = Math.max(...allPrices) * 1.002;
+  const range = maxP - minP;
+  
+  const padL = 10, padR = 10, padT = 25, padB = 10;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+  
+  const yForPrice = (p) => padT + chartH * (1 - (p - minP) / range);
+  const xForIdx = (i) => padL + (chartW * i / (CHART_POINTS - 1));
+
+  // 网格线
+  chartCtx.strokeStyle = "#1e2836";
+  chartCtx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const y = padT + chartH * i / 3;
+    chartCtx.beginPath();
+    chartCtx.moveTo(padL, y);
+    chartCtx.lineTo(w - padR, y);
+    chartCtx.stroke();
+  }
+
+  // 绘制现货线
+  chartCtx.strokeStyle = "#ffd400";
+  chartCtx.lineWidth = 2;
+  chartCtx.beginPath();
+  spotData.forEach((p, i) => {
+    const x = xForIdx(i + (CHART_POINTS - spotData.length));
+    const y = yForPrice(p);
+    if (i === 0) chartCtx.moveTo(x, y);
+    else chartCtx.lineTo(x, y);
+  });
+  chartCtx.stroke();
+
+  // 绘制期货线
+  chartCtx.strokeStyle = "#00b4ff";
+  chartCtx.lineWidth = 2;
+  chartCtx.beginPath();
+  futData.forEach((p, i) => {
+    const x = xForIdx(i + (CHART_POINTS - futData.length));
+    const y = yForPrice(p);
+    if (i === 0) chartCtx.moveTo(x, y);
+    else chartCtx.lineTo(x, y);
+  });
+  chartCtx.stroke();
+
+  // 当前价格标签
+  const lastSpot = spotData[spotData.length - 1];
+  const lastFut = futData[futData.length - 1];
+  const lastX = xForIdx(CHART_POINTS - 1);
+  
+  chartCtx.font = "10px monospace";
+  chartCtx.fillStyle = "#ffd400";
+  chartCtx.fillText(fmtPrice(lastSpot), lastX - 40, yForPrice(lastSpot) - 4);
+  chartCtx.fillStyle = "#00b4ff";
+  chartCtx.fillText(fmtPrice(lastFut), lastX - 40, yForPrice(lastFut) + 12);
+}
+
+// ============= 交易操作 =============
+function openPosition(direction, quantity) {
+  if (gameState.position) {
+    showToast("请先平掉当前持仓", "error");
+    return;
+  }
+  
+  const margin = gameState.futuresPrice * CONTRACT_MULTIPLIER * quantity * MARGIN_RATIO;
+  if (margin > gameState.balance) {
+    showToast("保证金不足！", "error");
+    return;
+  }
+
+  gameState.position = {
+    direction: direction,
+    quantity: quantity,
+    openPrice: gameState.futuresPrice
+  };
+  gameState.totalTrades++;
+
+  unlockAchievement("first_trade");
+  showToast(`${direction === 'long' ? '买入' : '卖出'}开仓 ${quantity} 手 @ ${fmtPrice(gameState.futuresPrice)}`, "success");
+  updatePositionDisplay();
+  updateBalanceDisplay();
+}
+
+function closePosition() {
+  if (!gameState.position) return;
+  
+  const pnl = getUnrealizedPnL();
+  const pos = gameState.position;
+  gameState.balance += pnl;
+  gameState.totalPnL += pnl;
+  
+  if (pnl >= 0) gameState.wins++;
+  else gameState.losses++;
+
+  // 成就检测
+  if (pos.direction === "long" && pnl > 20000) unlockAchievement("long_profit");
+  if (pos.direction === "short" && pnl > 20000) unlockAchievement("short_profit");
+  if (Math.abs(pnl) > 100000) unlockAchievement("big_win");
+
+  // 基差套利检测
+  const openBasis = pos.openPrice - (gameState.spotStartPrice + (gameState.spotPrice - gameState.spotStartPrice) * 0.5); // 近似
+  const basis = gameState.futuresPrice - gameState.spotPrice;
+  if (Math.abs(basis) < gameState.spotPrice * 0.002 && Math.abs(openBasis) > gameState.spotPrice * 0.006) {
+    unlockAchievement("arbitrage");
+  }
+
+  const directionText = pos.direction === "long" ? "多头" : "空头";
+  showToast(`平仓 ${directionText} ${pos.quantity}手 盈亏: ${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)}`, pnl >= 0 ? "success" : "error");
+  
+  gameState.position = null;
+  updatePositionDisplay();
+  updateBalanceDisplay();
+}
+
+// ============= 成就系统 =============
+function unlockAchievement(id) {
+  if (gameState.achievements[id]) return;
+  gameState.achievements[id] = true;
+  const ach = ACHIEVEMENTS.find(a => a.id === id);
+  if (ach) {
+    showToast(`🏆 获得成就：${ach.name}`, "success");
+  }
+  saveProgress();
+}
+
+function renderAchievements(container, size = "normal") {
+  container.innerHTML = ACHIEVEMENTS.map(a => `
+    <div class="badge ${gameState.achievements[a.id] ? 'unlocked' : ''}">
+      ${a.icon}
+      <span class="badge-name">${a.name}</span>
+    </div>
+  `).join("");
+}
+
+// ============= 关卡管理 =============
+function renderLevelSelect() {
+  const grid = document.getElementById("levelSelect");
+  grid.innerHTML = LEVELS.map(lv => {
+    const unlocked = lv.id <= gameState.unlockedLevel;
+    const current = lv.id === gameState.currentLevel;
+    return `
+      <div class="level-card ${unlocked ? '' : 'locked'} ${current ? 'current' : ''}" data-level="${lv.id}">
+        <div class="level-num">${unlocked ? lv.id : '🔒'}</div>
+        <div class="level-name">${lv.name}</div>
+        <div class="level-desc">${lv.desc}</div>
+      </div>
+    `;
+  }).join("");
+  
+  grid.querySelectorAll(".level-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const lv = parseInt(card.dataset.level);
+      if (lv <= gameState.unlockedLevel) {
+        gameState.currentLevel = lv;
+        renderLevelSelect();
+      } else {
+        showToast("请先通关前一关", "info");
+      }
+    });
+  });
+}
+
+function showKnowledgeModal() {
+  const level = LEVELS[gameState.currentLevel - 1];
+  document.getElementById("knowledgeTitle").textContent = `第${level.id}关 · ${level.name}`;
+  document.getElementById("knowledgeBody").innerHTML = level.knowledge;
+  document.getElementById("knowledgeModal").style.display = "flex";
+}
+
+function startLevel() {
+  const level = LEVELS[gameState.currentLevel - 1];
+  
+  // 重置状态
+  gameState.balance = INITIAL_BALANCE;
+  gameState.initialBalance = INITIAL_BALANCE;
+  gameState.position = null;
+  gameState.timeLeft = GAME_DURATION;
+  gameState.tickCount = 0;
+  gameState.totalTrades = 0;
+  gameState.totalPnL = 0;
+  gameState.wins = 0;
+  gameState.losses = 0;
+  gameState.priceHistory = { spot: [], futures: [] };
+  gameState.lastNewsTime = 0;
+  gameState.basisTrend = 0;
+  
+  // 设置初始价格
+  gameState.spotPrice = 3800 + Math.random() * 200 - 100;
+  gameState.futuresPrice = gameState.spotPrice * (1 + 0.003 + (Math.random() - 0.5) * 0.002);
+  gameState.spotStartPrice = gameState.spotPrice;
+  gameState.futuresStartPrice = gameState.futuresPrice;
+  gameState.spotBasePrice = gameState.spotPrice;
+  gameState.futuresBasePrice = gameState.futuresPrice;
+  
+  // 更新UI
+  document.getElementById("levelText").textContent = `第 ${level.id} 关 · ${level.name}`;
+  document.getElementById("newsText").textContent = "市场开盘，交易开始！";
+  document.getElementById("newsText").className = "news-text";
+  document.getElementById("qtyValue").textContent = "1";
+  
+  updatePriceDisplay();
+  updateBalanceDisplay();
+  updatePositionDisplay();
+  updateTimerDisplay();
+  
+  // 初始数据点
+  gameState.priceHistory.spot.push(gameState.spotPrice);
+  gameState.priceHistory.futures.push(gameState.futuresPrice);
+  drawChart();
+  
+  gameState.isPlaying = true;
+  gameLoop();
+}
+
+function endLevel() {
+  gameState.isPlaying = false;
+  
+  // 强制平仓
+  if (gameState.position) {
+    const pnl = getUnrealizedPnL();
+    gameState.balance += pnl;
+    gameState.totalPnL += pnl;
+    if (pnl >= 0) gameState.wins++;
+    else gameState.losses++;
+    gameState.position = null;
+  }
+  
+  const finalBalance = gameState.balance;
+  const totalReturn = (finalBalance - gameState.initialBalance) / gameState.initialBalance;
+  const level = LEVELS[gameState.currentLevel - 1];
+  const passed = totalReturn >= level.targetReturn;
+  
+  // 解锁下一关
+  if (passed && gameState.currentLevel === gameState.unlockedLevel && gameState.currentLevel < 5) {
+    gameState.unlockedLevel++;
+    saveProgress();
+  }
+  
+  // 通关成就
+  if (gameState.unlockedLevel > 5) {
+    unlockAchievement("all_levels");
+  }
+  
+  // 显示结果
+  showResult(passed, finalBalance, totalReturn);
+}
+
+function showResult(passed, finalBalance, totalReturn) {
+  const level = LEVELS[gameState.currentLevel - 1];
+  
+  document.getElementById("resultIcon").textContent = passed ? "🎉" : "😔";
+  document.getElementById("resultScore").textContent = (totalReturn >= 0 ? "+" : "") + fmtMoney(finalBalance - gameState.initialBalance);
+  document.getElementById("resultScore").style.color = totalReturn >= 0 ? "#00ff88" : "#ff6b6b";
+  document.getElementById("resultLabel").textContent = passed ? `恭喜通过第${level.id}关！` : `差一点就达标了，再试试吧！`;
+  
+  const winRate = gameState.wins + gameState.losses > 0 
+    ? ((gameState.wins / (gameState.wins + gameState.losses)) * 100).toFixed(0) + "%"
+    : "-";
+  
+  document.getElementById("resultStats").innerHTML = `
+    <div class="stat-row"><span class="stat-label">初始资金</span><span class="stat-value">${fmtMoney(gameState.initialBalance)}</span></div>
+    <div class="stat-row"><span class="stat-label">最终资金</span><span class="stat-value">${fmtMoney(finalBalance)}</span></div>
+    <div class="stat-row"><span class="stat-label">总收益率</span><span class="stat-value" style="color:${totalReturn >= 0 ? '#ff4757' : '#00d26a'}">${fmtPct(totalReturn)}</span></div>
+    <div class="stat-row"><span class="stat-label">目标收益率</span><span class="stat-value">${fmtPct(level.targetReturn)}</span></div>
+    <div class="stat-row"><span class="stat-label">交易次数</span><span class="stat-value">${gameState.totalTrades}</span></div>
+    <div class="stat-row"><span class="stat-label">胜率</span><span class="stat-value">${winRate}</span></div>
+  `;
+  
+  // 展示成就
+  renderAchievements(document.getElementById("achievementShowcase"));
+  
+  // 按钮
+  const nextBtn = document.getElementById("btnNextLevel");
+  if (passed && gameState.currentLevel < 5) {
+    nextBtn.style.display = "block";
+    nextBtn.textContent = "下一关";
+  } else if (passed && gameState.currentLevel === 5) {
+    nextBtn.style.display = "block";
+    nextBtn.textContent = "🏆 全部通关！";
+  } else {
+    nextBtn.style.display = "none";
+  }
+  
+  document.getElementById("resultModal").style.display = "flex";
+}
+
+// ============= 游戏主循环 =============
+let gameTimer;
+function gameLoop() {
+  if (!gameState.isPlaying) return;
+  
+  gameState.tickCount++;
+  gameState.timeLeft -= TICK_INTERVAL / 1000;
+  
+  generatePriceTick();
+  maybeTriggerNews();
+  
+  updatePriceDisplay();
+  updateBalanceDisplay();
+  updatePositionDisplay();
+  updateTimerDisplay();
+  drawChart();
+  
+  // 新手提示
+  if (gameState.tickCount === 5 && !gameState.position) {
+    const level = LEVELS[gameState.currentLevel - 1];
+    if (level.trend === "bull") {
+      showFloatingTip("💡 行情看涨，试试「买入开仓」做多！");
+    } else if (level.trend === "bear") {
+      showFloatingTip("💡 行情看跌，试试「卖出开仓」做空！");
+    }
+  }
+  
+  if (gameState.timeLeft <= 0) {
+    endLevel();
+    return;
+  }
+  
+  gameTimer = setTimeout(gameLoop, TICK_INTERVAL);
+}
+
+// ============= 事件绑定 =============
+let currentQty = 1;
+
+function updateQtyDisplay() {
+  document.getElementById("qtyValue").textContent = currentQty;
+}
+
+document.getElementById("qtyPlus").addEventListener("click", () => {
+  const maxQty = Math.floor(gameState.balance / (gameState.futuresPrice * CONTRACT_MULTIPLIER * MARGIN_RATIO));
+  if (currentQty < maxQty) {
+    currentQty++;
+    updateQtyDisplay();
+  } else {
+    showToast("已达最大可开仓手数", "info");
+  }
+});
+
+document.getElementById("qtyMinus").addEventListener("click", () => {
+  if (currentQty > 1) {
+    currentQty--;
+    updateQtyDisplay();
+  }
+});
+
+document.getElementById("btnBuy").addEventListener("click", () => {
+  if (!gameState.isPlaying) return;
+  openPosition("long", currentQty);
+});
+
+document.getElementById("btnSell").addEventListener("click", () => {
+  if (!gameState.isPlaying) return;
+  openPosition("short", currentQty);
+});
+
+document.getElementById("btnClose").addEventListener("click", () => {
+  if (!gameState.isPlaying) return;
+  closePosition();
+});
+
+document.getElementById("btnNews").addEventListener("click", () => {
+  if (!gameState.isPlaying) return;
+  triggerManualNews();
+});
+
+document.getElementById("btnStartGame").addEventListener("click", () => {
+  document.getElementById("startModal").style.display = "none";
+  showKnowledgeModal();
+});
+
+document.getElementById("btnStartLevel").addEventListener("click", () => {
+  document.getElementById("knowledgeModal").style.display = "none";
+  startLevel();
+});
+
+document.getElementById("btnNextLevel").addEventListener("click", () => {
+  document.getElementById("resultModal").style.display = "none";
+  if (gameState.currentLevel < 5) {
+    gameState.currentLevel++;
+    showKnowledgeModal();
+  } else {
+    // 全部通关，回到开始界面
+    document.getElementById("startModal").style.display = "flex";
+    renderLevelSelect();
+  }
+});
+
+document.getElementById("btnRetry").addEventListener("click", () => {
+  document.getElementById("resultModal").style.display = "none";
+  showKnowledgeModal();
+});
+
+// 窗口大小变化时重绘图表
+window.addEventListener("resize", () => {
+  chartCtx = null;
+  initChart();
+  drawChart();
+});
+
+// ============= 初始化 =============
+loadProgress();
+renderLevelSelect();
+initChart();
+
+// 初始显示一些价格点
+for (let i = 0; i < 10; i++) {
+  gameState.priceHistory.spot.push(3800 + Math.sin(i * 0.5) * 10);
+  gameState.priceHistory.futures.push(3812 + Math.sin(i * 0.5 + 0.3) * 12);
+}
+drawChart();
+</script>
+</body>
+</html>
